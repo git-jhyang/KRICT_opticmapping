@@ -1,0 +1,20 @@
+# Created by https://www.toptal.com/developers/gitignore/api/python
+# Edit at https://www.toptal.com/developers/gitignore?templates=python
+
+### Python ###
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# User created temp files
+/junk/
+/params_dbpn/
+/params_rbpn/
+/output/
+/dataset/
+log*
+nohup*
+run*
+execute*
+test*
