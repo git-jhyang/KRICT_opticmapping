@@ -9,6 +9,8 @@ nohup*
 run*
 execute*
 test*
+*.pth
+*.pth.bkup
 
 # led / optimized / DLL files
 __pycache__/
