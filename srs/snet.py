@@ -77,7 +77,7 @@ class SpectrumAutoEncoder(nn.Module):
                 num_blocks = i
                 break
             length = int(_length)
-            self.conv_layers.append(ConvBlock(base_filter, base_filter, kernel_size, stride, padding))
+            self.conv_layers.append(ConvBlock(base_filter, base_filter, kernel_size, stride, padding, norm='batch'))
         
         self.latent_layer = nn.Sequential(
             nn.Flatten(),
@@ -91,7 +91,7 @@ class SpectrumAutoEncoder(nn.Module):
             )
         ])
         for _ in range(num_blocks):
-            self.deconv_layers.append(DeconvBlock(base_filter, base_filter, kernel_size, stride, padding))
+            self.deconv_layers.append(DeconvBlock(base_filter, base_filter, kernel_size, stride, padding, norm='batch'))
 
         self.output_layer = ConvBlock(base_filter, 1, 3, 1, 1)
 

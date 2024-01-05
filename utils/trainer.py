@@ -148,6 +148,48 @@ class RBPNTrainer(BaseTrainer):
             v['pred'] = np.stack(v['pred'], axis=0)[o].squeeze()
             v['bic'] = np.stack(v['bic'], axis=0)[o].squeeze()
         return outputs
+    
+class SwinIRTrainer(BaseTrainer):
+    def __init__(self, model, opt, device=torch.device('cuda')):
+        self.model  = model
+        self.opt    = opt
+        self.device = device
+        
+    def _iter_step(self, batch):
+        inp, tgt, _, _ = batch
+        inp = inp.to(self.device)
+        tgt = tgt.to(self.device)
+        
+        pred = self.model(inp)[:, :1]
+        return pred, tgt
+    
+    def _get_outputs(self, batch, output, outputs):
+        _, tgt, bic, info = batch
+        pred_img = output[0].cpu().clamp(0,1).numpy()
+        tgt_img  = tgt.cpu().clamp(0,1).numpy()
+        bic_img  = bic.cpu().clamp(0,1).numpy()
+        for i, t, p, b in zip(info, tgt_img, pred_img, bic_img):
+            tag = f'{i[0]}_{i[1]}'
+            if tag not in outputs.keys():
+                outputs[tag] = {
+                    'vmin':float(i[2]), 'vmax':float(i[3]),
+                    'x':[], 'pred':[], 'bic':[], 'tgt':[]
+                }
+            outputs[tag]['x'].append(float(i[4]))
+            outputs[tag]['bic'].append(b[:, :i[5], :i[6]])
+            outputs[tag]['tgt'].append(t[:, :i[5], :i[6]])
+            outputs[tag]['pred'].append(p[:, :i[5], :i[6]])
+        return outputs
+    
+    def _parse_outputs(self, outputs):
+        for v in outputs.values():
+            o = np.argsort(v['x'])
+            v['x'] = np.array(v['x'])[o].squeeze()
+            v['tgt'] = np.stack(v['tgt'], axis=0)[o].squeeze()
+            v['pred'] = np.stack(v['pred'], axis=0)[o].squeeze()
+            v['bic'] = np.stack(v['bic'], axis=0)[o].squeeze()
+        return outputs
+
 
 class SSRNetTrainer(BaseTrainer):
     def __init__(self, model, opt, device=torch.device('cuda')):
@@ -198,17 +240,16 @@ class SAETrainer(BaseTrainer):
         self.device = device
 
     def _iter_step(self, batch):
-        inp, tgt, _ = batch
+        inp, _, _ = batch
         inp = inp.to(self.device)
-        tgt = tgt.to(self.device)
         
         pred, latent = self.model(inp)
-        return pred, tgt, latent
+        return pred, inp, latent
 
     def _get_outputs(self, batch, output, outputs):
-        _, tgt, info = batch
-        pred, _, latent = output
-        _tgt = tgt.detach().cpu().numpy()
+        _, _, info = batch
+        pred, inp, latent = output
+        _tgt = inp.detach().cpu().numpy()
         _pred = pred.detach().cpu().numpy()
         _latent = latent.detach().cpu().numpy()
         tags = np.array([f'{i0}_{i1}' for i0, i1 in info[:,:2]])
@@ -218,7 +259,7 @@ class SAETrainer(BaseTrainer):
             if tag not in outputs.keys():
                 outputs[tag] = {
                     'order':_info[4], 'vmin':_info[2,0], 'vmax':_info[3,0], 
-                    'x':_info[5:,0], 'tgt':_tgt[m], 'pred':_pred[m], 'latent':_latent[m]
+                    'tgt':_tgt[m], 'pred':_pred[m], 'latent':_latent[m]
                 }
             else:
                 outputs[tag]['order'] = np.hstack([outputs[tag]['order'], _info[4]])
@@ -229,10 +270,9 @@ class SAETrainer(BaseTrainer):
     
     def _parse_outputs(self, outputs):
         for v in outputs.values():
-            o = np.argsort(v.pop('order'))
-            m = v['x'] != 0
-            v['x'] = v['x'][m].squeeze()
-            v['tgt'] = v['tgt'].squeeze()[o][..., m]
-            v['pred'] = v['pred'].squeeze()[o][..., m]
+            o = np.argsort(v['order'].astype(int))
+            v['tgt'] = v['tgt'].squeeze()[o]
+            v['pred'] = v['pred'].squeeze()[o]
             v['latent'] = v['latent'].squeeze()[o]
+            v['order'] = v['order'].squeeze()[o].astype(int)
         return outputs

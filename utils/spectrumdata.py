@@ -146,110 +146,45 @@ class SpectrumSRDataset(Dataset):
         return bicubic, target, info
 
 class SpectrumAEDataset(Dataset):
-    def __init__(self, maxlen=512, mode='histogram', include_x=False, x_unit=('nm','eV')):
+    def __init__(self, length, norm_params={'vmin' : None, 'vmax':None, 'n':2000, 'min_count':3, 'mode':'histogram', 'num_bit':0, 'extend_bit':False}):
         super(SpectrumAEDataset, self).__init__()
-        self.maxlen = maxlen
-        self.mode = mode
+        self.length = length
+        self.norm_params = norm_params
         
-        self.include_x = include_x
-        self.unit_converter = wave_unit_converters[x_unit[0]][x_unit[1]]
-
         self.xs = {}
         self.infos = []
         self.inputs = []
-        self.targets = []
 
-    def from_fns(self, fns, xs_ref=None, root='/mnt/DATA/2D/pl_postech/spectrum'):
+    def from_data(self, x, ys):
         self.infos = []
         self.inputs = []
-        self.targets = []
         
-        for fn in tqdm.tqdm(fns, total=len(fns), desc='Data generation...'):
-            xs, ys = read_spectrum(fn, root=root, transpose_y=False)
-            vmin, vmax, inp = norm_spectrum(ys=ys, ref=ys, mode=self.mode)
-            
-            n = xs.shape[0]
-            inp = torch.from_numpy(inp.reshape(-1, n)).float()
-            m = inp.shape[0]
-            
-            mask = np.ones(n, dtype=bool)
-            if xs_ref is not None and n != xs_ref.shape[0]:
-                mask = get_mask(xs, xs_ref)
-                xs = xs[mask]
-                inp = inp[:, mask]
-                m, n = inp.shape
-
-            if n < self.maxlen:
-                p0 = (self.maxlen - n)//2
-                p1 = (self.maxlen - n)//2 + (self.maxlen - n)%2
-                inp = torch.hstack([torch.zeros((m, p0)), inp, torch.zeros((m, p1))]).float()
-                xs  = np.hstack([np.zeros(p0), xs, np.zeros(p1)])
-            elif n > self.maxlen:
-                vars = inp.var(dim=0).numpy()
-                mask = np.zeros(n, dtype=bool)
-                mask[np.argsort(vars)[-self.maxlen:]] = True
-                xs = xs[mask]
-                inp = inp[:, mask]
-
-            inp = inp.unsqueeze(1)
-
-            self.targets.append(inp)           
-            if self.include_x:
-                x = torch.from_numpy(self.unit_converter(xs)).float()
-                inp = torch.concat([inp, x.expand(inp.shape)], dim=1)
-
-            self.inputs.append(inp)
-            self.infos.append(np.hstack([
-                    np.repeat([[fn, 'None', vmin, vmax]], m, axis=0),
-                    np.arange(m).reshape(m,1),
-                    np.repeat(xs.reshape(1,-1), m, axis=0)
-                ])
-            )
-        self.inputs = torch.vstack(self.inputs)
-        self.targets = torch.vstack(self.targets)
-        self.infos = np.vstack(self.infos)
-    
-    def from_data(self, xs, ys, xs_ref=None):
-        self.infos = []
-        self.inputs = []
-        self.targets = []
-        
-        vmin, vmax, inp = norm_spectrum(ys, ref=ys, mode=self.mode)
-        n = xs.shape[0]
-        shape = ys.shape
-        inp = transpose_spectrum(inp, shape.index(n))
-        inp = inp.reshape(n, -1).T
-        m, n = inp.shape
-        
-        mask = np.ones(xs.shape[0], dtype=bool)
-        if xs_ref is not None:
-            mask = get_mask(xs, xs_ref)
-            xs = xs[mask]
-            inp = inp[..., mask]
-            m, n = inp.shape
-    
-        if n < self.maxlen:
-            p0 = (self.maxlen - n)//2
-            p1 = (self.maxlen - n)//2 + (self.maxlen - n)%2
-            inp = torch.hstack([torch.zeros((m, p0)), inp, torch.zeros((m, p1))]).float()
+        vmin, vmax, nys = norm_spectrum(ys, ref=ys, **self.norm_params)
+        n, n1, n2 = nys.shape
+        m = n1 * n2
+        inp = nys.reshape(n, -1).T
+        xs = x.copy()
+        if n < self.length:
+            p0 = (self.length - n)//2
+            p1 = (self.length - n)//2 + (self.length - n)%2
+            inp = torch.hstack([
+                torch.zeros((m, p0)), 
+                torch.from_numpy(inp),
+                torch.zeros((m, p1))]).float()
             xs  = np.hstack([np.zeros(p0), xs, np.zeros(p1)])
-        elif n > self.maxlen:
-            vars = inp.var(dim=0).numpy()
+        elif n > self.length:
+            std = inp.std(0)
             mask = np.zeros(n, dtype=bool)
-            mask[np.argsort(vars)[-self.maxlen:]] = True
+            mask[np.argsort(std)[-self.length:]] = True
             xs = xs[mask]
             inp = inp[..., mask]
 
         inp = torch.from_numpy(inp).float().unsqueeze(1)
-        self.targets = inp
-        if self.include_x:
-            x = torch.from_numpy(self.unit_converter(xs)).float()
-            inp = torch.concat([inp, x.expand(inp.shape)], dim=1)
+        self.xs = xs
         self.inputs = inp
         self.infos = np.hstack([
                 np.repeat([['None', 'None', vmin, vmax]], m, axis=0),
                 np.arange(m).reshape(m,1),
-                np.repeat(xs.reshape(1,-1), m, axis=0)
             ]
         )
 
@@ -258,10 +193,9 @@ class SpectrumAEDataset(Dataset):
     
     def __getitem__(self, index):
         input = self.inputs[index]
-        target = self.targets[index]
         info = self.infos[index]
         
-        return input, target, info
+        return input, input, info
 
 def collate_fn(data):
     inps = []

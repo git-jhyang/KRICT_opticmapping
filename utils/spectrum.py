@@ -52,16 +52,16 @@ def norm_spectrum(ys: np.ndarray,
                   n: int = 2000, 
                   min_count: int = 3, 
                   mode:str = 'histogram',
+                  num_bit = 256,
                   extend_bit = True,
                   ):
     if ref is None:
         ref = ys.copy()
     if mode == 'histogram':
         flat = ref.reshape(-1)
-        count, bins = np.histogram(flat, np.linspace(np.min(flat)-1, np.max(flat)+1, n))
+        count, bins = np.histogram(flat, bins=n)
         bins = (bins[1:] + bins[:-1]) * 0.5
-        mask = count > flat.shape[0] * 0.01
-        vmin = np.average(bins[mask], weights=count[mask])
+        vmin = bins[count > min_count][0]
         vmax = bins[count > min_count][-1]
     elif mode == 'minmax':
         vmin = vmin if vmin is not None else np.min(ref)
@@ -69,10 +69,11 @@ def norm_spectrum(ys: np.ndarray,
     else:
         raise ValueError('Not supported normalization', mode)
 
-    ys_ = np.clip(ys, vmin, vmax)
-    if extend_bit:
-        vmax = np.max([vmax, vmin + 255])
-    y_norm = (np.clip((ys_ - vmin)/(vmax - vmin), 0, 1) * 255).astype(int) / 255.0
+    if extend_bit and num_bit != 0:
+        vmax = np.max([vmax, vmin + num_bit - 1])
+    y_norm = np.clip((ys - vmin) / (vmax - vmin), 0, 1)
+    if num_bit != 0:
+        y_norm = (y_norm * (num_bit - 1)).astype(int).astype(float) / 255.0
     return vmin, vmax, y_norm
 
 def denorm_spectrum(ys, vmin, vmax):

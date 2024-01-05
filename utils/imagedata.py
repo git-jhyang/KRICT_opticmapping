@@ -5,14 +5,15 @@ import torch, tqdm
 import numpy as np
 
 class SpectrumImageDataset(Dataset):
-    def __init__(self, upscale_factor, data_augmentation=False, 
-                 channels=3, mode='histogram'):
+    def __init__(self, upscale_factor, data_augmentation=False, channels=3, window_size=0,
+                 norm_params={'vmin' : None, 'vmax':None, 'n':2000, 'min_count':3, 'mode':'histogram', 'num_bit':256, 'extend_bit':True}):
         
         super(SpectrumImageDataset, self).__init__()
         self.augmentation = data_augmentation
         self.upscale_factor = upscale_factor
         self.channels = channels
-        self.mode = mode
+        self.norm_params = norm_params
+        self.window_size = window_size
 
         self.xs = {}
         self.infos = []
@@ -21,7 +22,7 @@ class SpectrumImageDataset(Dataset):
         self.bicubics = []
         self.subset_index = []
 
-    def from_pairs(self, paired_idxs, root='/mnt/DATA/2D/pl_postech/spectrum'):
+    def from_pair(self, pairs, root='/mnt/DATA/2D/pl_postech/spectrum'):
         self.xs = {}
         self.infos = []
         self.inputs = []
@@ -30,7 +31,7 @@ class SpectrumImageDataset(Dataset):
         self.subset_index = []
 
         _list_res = []
-        for inp_tag, tgt_tag in tqdm.tqdm(paired_idxs, total=len(paired_idxs), desc='Data generation...'):
+        for inp_tag, tgt_tag in tqdm.tqdm(pairs, total=len(pairs), desc='Data generation...'):
             if inp_tag is None and tgt_tag is None:
                 continue
             
@@ -67,7 +68,7 @@ class SpectrumImageDataset(Dataset):
         for r in np.sort(np.unique(list_res)):
             self.subset_index.append(np.where(r == list_res)[0])
 
-    def from_data(self, x, ys_inp, xs_ref=None, variance_masking=False):
+    def from_data(self, x, ys_inp, tag_1=None, tag_2=None, xs_ref=None, variance_masking=False, is_target=False):
         self.xs = {}
         self.infos = []
         self.inputs = []
@@ -101,11 +102,21 @@ class SpectrumImageDataset(Dataset):
             n = np.sum(mask)
             mask[np.argsort(vars)[-n-128+n%128:-n]] = True
 
-        _x = convert_to_image(inp, None, upscale_factor=self.upscale_factor, channels=self.channels)
+        n, h, w = inp.shape
+        if self.window_size != 0:
+            h_pad = (h // self.window_size + 1) * self.window_size - h
+            w_pad = (w // self.window_size + 1) * self.window_size - w
+            inp = np.concatenate([inp, np.flip(inp, 1)], 1)[:, :h+h_pad, :]
+            inp = np.concatenate([inp, np.flip(inp, 2)], 2)[:, :, :w+w_pad]
 
-        imgs_inp, imgs_tgt, imgs_bic = _x
+        if is_target:
+            imgs_inp, imgs_tgt, imgs_bic = convert_to_image(None, inp, upscale_factor=self.upscale_factor, channels=self.channels)
+        else:
+            imgs_inp, imgs_tgt, imgs_bic = convert_to_image(inp, None, upscale_factor=self.upscale_factor, channels=self.channels)            
+
+        self.xs['None'] = xs
         for i in np.where(mask)[0]:
-            self.infos.append([None, None, vmin, vmax, xs[i]])
+            self.infos.append([tag_1, tag_2, vmin, vmax, xs[i], h*self.upscale_factor, w*self.upscale_factor])
             self.inputs.append(imgs_inp[i])
             self.targets.append(imgs_tgt[i])
             self.bicubics.append(imgs_bic[i])

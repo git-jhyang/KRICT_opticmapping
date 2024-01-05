@@ -11,6 +11,8 @@ execute*
 test*
 *.pth
 *.pth.bkup
+/SwinIR/figs/
+/SwinIR/testsets/
 
 # led / optimized / DLL files
 __pycache__/
