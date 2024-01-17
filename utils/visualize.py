@@ -95,7 +95,6 @@ def plot_maxmap(ax, x, ys, xrange=None, yrange=None, grid=None, cax=None,
         ax.set_xticks([])
         ax.set_yticks([])
     
-    ax.invert_yaxis()
     if cax is not None:
         idxs = np.linspace(1e-5,1-1e-5,200)
         lvls = np.linspace(1e-5,1-1e-5,100)
@@ -188,7 +187,7 @@ def super_resolution_summary(x, y, x_inp=None, y_inp=None,
 
 def clustering_summary(tsne_vector, labels, 
                        figsize=(12,5.5), gridspec_kw={'width_ratios':[1,1,0.05]},
-                       cmap=mpl.cm.viridis, fontsize=15):
+                       cmap=mpl.cm.viridis, fontsize=15, invert_x=False, invert_y=False):
     cmap.set_under([0.7, 0.7, 0.7])
     num_clusters = np.max(labels) + 1
     bounds = np.linspace(0,num_clusters,num_clusters+1)
@@ -204,11 +203,15 @@ def clustering_summary(tsne_vector, labels,
     for ax in axs[:2]: 
         ax.set_xticks([])
         ax.set_yticks([])
+    if invert_x:
+        axs[1].invert_xaxis()
+    if invert_y:
+        axs[1].invert_yaxis()
     return f
 
 def clustering_details(x, ys, tsne_vector, labels, num_example,
                        figsize=(12,4), gridspec_kw={'width_ratios':[1.5,1,1]},
-                       cmap=mpl.cm.viridis, fontsize=15, random_state=100):
+                       cmap=mpl.cm.viridis, fontsize=15, random_state=100, invert_x=False, invert_y=False):
     num_clusters = np.max(labels) + 1
     cmap.set_under([0.7, 0.7, 0.7])
     np.random.seed(random_state)
@@ -216,6 +219,7 @@ def clustering_details(x, ys, tsne_vector, labels, num_example,
     l = labels.reshape(-1)
     ys_ = ys.reshape(x.shape[0], -1).T
     f, axs = plt.subplots(num_clusters, 3, figsize=(figsize[0], figsize[1]*num_clusters), gridspec_kw=gridspec_kw)
+    axs = axs.reshape(num_clusters, 3)
     l_img = np.ones((n1*n2, 3)) * 0.7
     l_img[l != -1] = [0.6, 0.6, 0.6]
     vmin, vmax, _ = norm_spectrum(ys, num_bit=0)
@@ -246,6 +250,10 @@ def clustering_details(x, ys, tsne_vector, labels, num_example,
         ax[0].set_ylim([0, (0.7 + 0.3*num_example) * vmax])
         for j in range(num_example+2):
             ax[0].axhline(vmin + j * vmax * 0.3, ls='--', color=[0,0,0], lw=0.5)
-    f.subplots_adjust(wspace=0.03)
-    f.subplots_adjust(hspace=0.4)
+        if invert_x:
+            ax[2].invert_xaxis()
+        if invert_y:
+            ax[2].invert_yaxis()
+
+    f.subplots_adjust(wspace=0.03, hspace=0.4)
     return f 

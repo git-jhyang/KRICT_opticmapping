@@ -11,7 +11,10 @@ def read_spectrum(idx, root='/mnt/DATA/2D/pl_postech/spectrum', transpose_y=True
         idx = str(idx)
     if not idx.endswith('.txt'):
         idx = idx + '.txt'
-    mat = np.loadtxt(os.path.join(root, idx)).T
+    if os.path.isfile(idx):
+        mat = np.loadtxt(idx).T
+    else:
+        mat = np.loadtxt(os.path.join(root, idx)).T
     x = mat[0]
     ys = mat[1:]
     r = np.sqrt(ys.shape[0]).astype(int)

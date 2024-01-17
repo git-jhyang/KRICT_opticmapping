@@ -151,7 +151,7 @@ class SpectrumAEDataset(Dataset):
         self.length = length
         self.norm_params = norm_params
         
-        self.xs = {}
+        self.metadata = {}
         self.infos = []
         self.inputs = []
 
