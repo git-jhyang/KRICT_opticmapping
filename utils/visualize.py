@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from .spectrum import norm_spectrum, denorm_spectrum
+from .spectrum import norm_spectrum, denorm_spectrum, wave_unit_converters
 
 def postprocessing(data):
     vmin = data['vmin']
@@ -9,7 +9,27 @@ def postprocessing(data):
     x = data['x']
     pred = data['pred']
     bic = data['bic']
- 
+
+def add_axes_units(ax, base='nm', units=[], formats={}, padding=30):
+    fmts = {
+        'nm':'{:.0f}',
+        'um':'{:.0f}',
+        'cm-1':'{:.0f}',
+        'eV':'{:.0f}',
+        'meV':'{:.0f}',
+    }
+    fmts.update(formats)
+    axs = []
+    for i, unit in enumerate(units):
+        ax_ = ax.secondary_xaxis('bottom',
+                                 functions=(wave_unit_converters[base][unit],
+                                            wave_unit_converters[unit][base]))
+        ax_.xaxis.set_major_formatter(lambda x, y: fmts[unit].format(x))
+    
+        ax_.spines[:].set_position(('outward',(i+1) * padding))
+        axs.append(ax_)
+    return axs
+
 def plot_map(ax, x, ys, loc, tol=0.03, grid=None, readout='max', **kwargs):
     shape = ys.shape
     if len(shape) == 2:
@@ -187,7 +207,7 @@ def super_resolution_summary(x, y, x_inp=None, y_inp=None,
 
 def clustering_summary(tsne_vector, labels, 
                        figsize=(12,5.5), gridspec_kw={'width_ratios':[1,1,0.05]},
-                       cmap=mpl.cm.viridis, fontsize=15, invert_x=False, invert_y=False):
+                       cmap=mpl.cm.viridis, fontsize=15):
     cmap.set_under([0.7, 0.7, 0.7])
     num_clusters = np.max(labels) + 1
     bounds = np.linspace(0,num_clusters,num_clusters+1)
@@ -203,15 +223,11 @@ def clustering_summary(tsne_vector, labels,
     for ax in axs[:2]: 
         ax.set_xticks([])
         ax.set_yticks([])
-    if invert_x:
-        axs[1].invert_xaxis()
-    if invert_y:
-        axs[1].invert_yaxis()
     return f
 
 def clustering_details(x, ys, tsne_vector, labels, num_example,
                        figsize=(12,4), gridspec_kw={'width_ratios':[1.5,1,1]},
-                       cmap=mpl.cm.viridis, fontsize=15, random_state=100, invert_x=False, invert_y=False):
+                       cmap=mpl.cm.viridis, fontsize=15, random_state=100, xunit='eV'):
     num_clusters = np.max(labels) + 1
     cmap.set_under([0.7, 0.7, 0.7])
     np.random.seed(random_state)
@@ -241,19 +257,35 @@ def clustering_details(x, ys, tsne_vector, labels, num_example,
         for ax_ in ax[1:]:
             ax_.set_xticks([])
             ax_.set_yticks([])
+        xlbls = {
+            'nm': 'Wavelength (nm)',
+            'cm-1': 'Wavenumber (cm-1)',
+            'eV': 'Energy (eV)',
+            'meV': 'Energy (meV)',
+        }
+        if isinstance(xunit, str):
+            xunit = [xunit]
+        _x = wave_unit_converters['nm'][xunit[0]](x)
+
+        ax[0].set_ylabel('Intensity (a.u.)', fontsize=fontsize)
+        ax[0].set_xlabel(xlbls[xunit[0]], fontsize=fontsize)
+        for i, xu in enumerate(xunit[1:]):
+            _ax = ax[0].secondary_xaxis('bottom', function=(wave_unit_converters['nm'][xu],
+                                                            wave_unit_converters[xu]['nm']))
+            if 'eV' in xu:
+                _ax.xaxis.set_major_formatter(lambda x,y: '{:.2f}')
+            else:
+                _ax.xaxis.set_major_formatter(lambda x,y: '{:.0f}')
+            _ax.spines[:].set_position(('outward',30*i))
+            _ax.set_xlabel(xlbls[xu])
+            
         for j, idx in enumerate(idxs):
-            ax[0].plot(x, ys_[lidxs[idx]] + j * vmax * 0.3)
-            ax[0].set_ylabel('Intensity (a.u.)', fontsize=fontsize)
-            ax[0].set_xlabel('Wavelength (nm)', fontsize=fontsize)
+            ax[0].plot(_x, ys_[lidxs[idx]] + j * vmax * 0.3)
             ax[1].scatter(*tsne_vector[l[l != -1] == i][idx], s=100, edgecolor=[0,0,0], marker='D')
             ax[2].scatter(lidxs[idx]%n1, lidxs[idx]//n1, color=mpl.cm.tab10(j), s=100, edgecolor=[0,0,0], marker='D')
         ax[0].set_ylim([0, (0.7 + 0.3*num_example) * vmax])
         for j in range(num_example+2):
             ax[0].axhline(vmin + j * vmax * 0.3, ls='--', color=[0,0,0], lw=0.5)
-        if invert_x:
-            ax[2].invert_xaxis()
-        if invert_y:
-            ax[2].invert_yaxis()
 
     f.subplots_adjust(wspace=0.03, hspace=0.4)
     return f 

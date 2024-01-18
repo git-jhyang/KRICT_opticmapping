@@ -162,5 +162,5 @@ wave_unit_converters = {
         'cm-1' : lambda x: x,
         'eV'   : lambda x: wave_constant*x*1e-7,
         'meV'  : lambda x: wave_constant*x*1e-4,
-    }
+    }   
 }
