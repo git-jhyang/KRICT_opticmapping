@@ -147,20 +147,37 @@ def spectrum_correlations(target, prediction, channel=0):
 wave_unit_converters = {
     'nm': {
         'nm'   : lambda x: x,
+        'um'   : lambda x: x*1e-3,
         'cm-1' : lambda x: np.piecewise(x, [x != 0, x == 0], [lambda x: 1e7/x, np.inf]),
         'eV'   : lambda x: np.piecewise(x, [x != 0, x == 0], [lambda x: wave_constant/x, np.inf]),
         'meV'  : lambda x: np.piecewise(x, [x != 0, x == 0], [lambda x: 1e3*wave_constant/x, np.inf]),
     },
+    'um': {
+        'nm'   : lambda x: x*1e3,
+        'um'   : lambda x: x,
+        'cm-1' : lambda x: np.piecewise(x, [x != 0, x == 0], [lambda x: 1e4/x, np.inf]),
+        'eV'   : lambda x: np.piecewise(x, [x != 0, x == 0], [lambda x: wave_constant*1e-3/x, np.inf]),
+        'meV'  : lambda x: np.piecewise(x, [x != 0, x == 0], [lambda x: wave_constant/x, np.inf]),        
+    },
+    'cm-1': {
+        'nm'   : lambda x: np.piecewise(x, [x != 0, x == 0], [lambda x: 1e7/x, np.inf]),
+        'um'   : lambda x: np.piecewise(x, [x != 0, x == 0], [lambda x: 1e4/x, np.inf]),
+        'cm-1' : lambda x: x,
+        'eV'   : lambda x: wave_constant*x*1e-7,
+        'meV'  : lambda x: wave_constant*x*1e-4,
+    },
     'eV': {
         'nm'   : lambda x: np.piecewise(x, [x != 0, x == 0], [lambda x: wave_constant/x, np.inf]),
+        'um'   : lambda x: np.piecewise(x, [x != 0, x == 0], [lambda x: 1e-3*wave_constant/x, np.inf]),
         'cm-1' : lambda x: 1e7*x/wave_constant,
         'eV'   : lambda x: x,
         'meV'  : lambda x: 1e3*x,
     },
-    'cm-1': {
-        'nm'   : lambda x: np.piecewise(x, [x != 0, x == 0], [lambda x: 1e7/x, np.inf]),
-        'cm-1' : lambda x: x,
-        'eV'   : lambda x: wave_constant*x*1e-7,
-        'meV'  : lambda x: wave_constant*x*1e-4,
-    }   
+    'meV':{
+        'nm'   : lambda x: np.piecewise(x, [x != 0, x == 0], [lambda x: 1e3*wave_constant/x, np.inf]),
+        'um'   : lambda x: np.piecewise(x, [x != 0, x == 0], [lambda x: wave_constant/x, np.inf]),
+        'cm-1' : lambda x: 1e4*x/wave_constant,
+        'eV'   : lambda x: 1e-3*x,
+        'meV'  : lambda x: x,
+    },
 }

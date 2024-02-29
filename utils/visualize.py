@@ -13,7 +13,7 @@ def postprocessing(data):
 def add_axes_units(ax, base='nm', units=[], formats={}, padding=30):
     fmts = {
         'nm':'{:.0f}',
-        'um':'{:.0f}',
+        'um':'{:.2f}',
         'cm-1':'{:.0f}',
         'eV':'{:.0f}',
         'meV':'{:.0f}',
@@ -259,6 +259,7 @@ def clustering_details(x, ys, tsne_vector, labels, num_example,
             ax_.set_yticks([])
         xlbls = {
             'nm': 'Wavelength (nm)',
+            'um': 'Wavelength (um)',
             'cm-1': 'Wavenumber (cm-1)',
             'eV': 'Energy (eV)',
             'meV': 'Energy (meV)',
